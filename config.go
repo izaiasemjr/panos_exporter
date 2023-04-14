@@ -61,3 +61,17 @@ func (sc *SafeConfig) DeviceConfigForTarget(target string) (*DeviceConfig, error
 	}
 	return &DeviceConfig{}, fmt.Errorf("no credentials found for target %s", target)
 }
+
+func (sc *SafeConfig) DeviceConfigFirstTarget() (*DeviceConfig, string, error) {
+	sc.Lock()
+	defer sc.Unlock()
+
+	for device := range sc.C.Devices {
+		return &DeviceConfig{
+			Username: sc.C.Devices[device].Username,
+			Password: sc.C.Devices[device].Password,
+		}, device, nil
+	}
+
+	return &DeviceConfig{}, "", fmt.Errorf("no credentials found")
+}

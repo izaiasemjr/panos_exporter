@@ -31,19 +31,21 @@ func metricsHandler() http.HandlerFunc {
 		registry := prometheus.NewRegistry()
 		ctx := r.Context()
 		target := r.URL.Query().Get("target")
-		if target == "" {
-			http.Error(w, "'target' parameter must be specified", 400)
-			return
-		}
-		log.Infof("Scraping target %s", target)
-
 		var deviceConfig *DeviceConfig
 		var err error
-		if deviceConfig, err = sc.DeviceConfigForTarget(target); err != nil {
+
+		if target == "" {
+			deviceConfig, target, err = sc.DeviceConfigFirstTarget()
+			if err != nil {
+				http.Error(w, err.Error(), 400)
+				return
+			}
+		} else if deviceConfig, err = sc.DeviceConfigForTarget(target); err != nil {
 			log.Errorf("Error getting credentialfor target %s, error: %s", target, err)
 			return
 		}
 
+		log.Infof("Scraping target %s", target)
 		collector := collector.NewPanosCollector(ctx, target, deviceConfig.Username, deviceConfig.Password)
 		registry.MustRegister(collector)
 		gatherers := prometheus.Gatherers{
@@ -53,7 +55,6 @@ func metricsHandler() http.HandlerFunc {
 		// Delegate http serving to Prometheus client library, which will call collector.Collect.
 		h := promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{})
 		h.ServeHTTP(w, r)
-
 	}
 }
 
